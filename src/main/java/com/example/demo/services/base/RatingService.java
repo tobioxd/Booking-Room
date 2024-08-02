@@ -105,7 +105,7 @@ public class RatingService implements IRatingService {
         Booking booking = bookingRepository.findById(rating.getBookingId())
                 .orElseThrow(() -> new Exception("Booking not found !"));
 
-if (user.getRole().equals("user")) {
+        if (user.getRole().equals("user")) {
             if (!booking.getUserPhoneNumber().equals(user.getPhoneNumber())) {
                 throw new Exception("You are not allowed to view this rating !");
             }

@@ -15,6 +15,7 @@ import com.example.demo.services.impl.ITokenService;
 
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -77,5 +78,15 @@ public class TokenService implements ITokenService {
         calendar.setTime(date);
         calendar.add(Calendar.SECOND, secondsToAdd);
         return calendar.getTime();
+    }
+
+    @Override
+    public List<Token> findByUser(User user) {
+        return tokenRepository.findByUser(user);
+    }
+
+    @Override
+    public void deleteToken(Token token) {
+        token.setRevoked(true);
     }
 }

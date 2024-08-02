@@ -1,6 +1,7 @@
 package com.example.demo.services.base;
 
 import java.util.Date;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.dao.DataIntegrityViolationException;
@@ -34,6 +35,7 @@ public class UserService implements IUserService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenUtil jwtTokenUtil;
     private final AuthenticationManager authenticationManager;
+    private final TokenService tokenService;
 
     @Override
     @Transactional
@@ -63,10 +65,22 @@ public class UserService implements IUserService {
 
     @Override
     public String loginUser(String phoneNumber, String password) throws Exception {
+
         Optional<User> user= userRepository.findByPhoneNumber(phoneNumber);
+        
         if(user.isEmpty()){
             throw new DataNotFoundException("Invalid phonenuber/password !");
         }
+
+        List<Token> tokens = tokenService.findByUser(user.get());
+        tokens.sort((t1, t2) -> t2.getExpirationDate().compareTo(t1.getExpirationDate()));
+
+        if(tokens.size() >= 3){
+            tokenService.deleteToken(tokens.get(0));
+        }
+
+        System.out.println(tokens.size());
+        System.out.println(tokens.get(0));
 
         User existinguser = user.get();
 
