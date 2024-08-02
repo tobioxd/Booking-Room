@@ -21,13 +21,9 @@ public interface IRoomService {
 
     Page<Room> getAllRooms(PageRequest PageRequest) throws Exception;
 
-    Page<Room> getAvailableRooms(PageRequest PageRequest) throws Exception;
+    Page<Room> getAvailableRooms(String type, PageRequest PageRequest) throws Exception;
 
     Page<Room> getAvailableOrCleaningRooms(PageRequest PageRequest) throws Exception;
-
-    Page<Room> getAvailableSingleRooms(PageRequest PageRequest) throws Exception;
-
-    Page<Room> getAvailableCoupleRooms(PageRequest PageRequest) throws Exception;
 
     void deleteRoom(Long roomNumber) throws Exception;
 

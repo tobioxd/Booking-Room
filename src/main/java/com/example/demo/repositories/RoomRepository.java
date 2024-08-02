@@ -23,16 +23,11 @@ public interface RoomRepository extends JpaRepository<Room, String> {
     @Query("SELECT o FROM Room o WHERE o.roomStatus != 'deleted'")
     Page<Room> findAllRoom(Pageable pageable);
 
-    @Query("SELECT o FROM Room o WHERE o.roomStatus = 'available'")
-    Page<Room> findAvailableRoom(Pageable pageable);
+    @Query("SELECT o FROM Room o WHERE o.roomStatus = 'available'" + 
+           " AND (:type IS NULL OR :type = '') OR o.roomType = :type")
+    Page<Room> findAvailableRoom(String type,Pageable pageable);
 
     @Query("SELECT o FROM Room o WHERE (o.roomStatus = 'available' OR o.roomStatus = 'cleaning')")
     Page<Room> findAvailableOrCleaningRoom(Pageable pageable);
-
-    @Query("SELECT o FROM Room o WHERE o.roomStatus = 'available' AND o.roomType = 'single'")
-    Page<Room> findAvailableSingleRoom(Pageable pageable);
-
-    @Query("SELECT o FROM Room o WHERE o.roomStatus = 'available' AND o.roomType = 'couple'")
-    Page<Room> findAvailableCoupleRoom(Pageable pageable);
 
 }

@@ -45,9 +45,10 @@ public class RoomController {
     @GetMapping("/all")
     @Operation(summary = "Get all rooms")
     public ResponseEntity<?> getAllRooms(@RequestParam(defaultValue = "0") int page,
-                                         @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "10") int size) {
         try {
-            Page<RoomResponse> rooms = roomService.getAllRooms(PageRequest.of(page, size, Sort.by("roomNumber"))).map(RoomResponse::fromRoom);
+            Page<RoomResponse> rooms = roomService.getAllRooms(PageRequest.of(page, size, Sort.by("roomNumber")))
+                    .map(RoomResponse::fromRoom);
             return ResponseEntity.ok(RoomListResponse.builder()
                     .rooms(rooms.getContent())
                     .totalPages(rooms.getTotalPages())
@@ -71,7 +72,8 @@ public class RoomController {
     @PutMapping("/update/{roomNumber}")
     @Operation(summary = "Update room information")
     @PreAuthorize("hasRole('ROLE_ADMIN')")
-    public ResponseEntity<?> updateRoom(@PathVariable Long roomNumber, @Valid @RequestBody UpdateRoomDTO roomDTO, BindingResult result) {
+    public ResponseEntity<?> updateRoom(@PathVariable Long roomNumber, @Valid @RequestBody UpdateRoomDTO roomDTO,
+            BindingResult result) {
         if (result.hasErrors()) {
             return ResponseEntity.badRequest().body(result.getAllErrors());
         }
@@ -109,10 +111,14 @@ public class RoomController {
 
     @GetMapping("/available")
     @Operation(summary = "Get all available rooms")
-    public ResponseEntity<?> getAvailableRooms(@RequestParam(defaultValue = "0") int page,
-                                               @RequestParam(defaultValue = "10") int size) {
+    public ResponseEntity<?> getAvailableRooms(@RequestParam(defaultValue = "") String type,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
         try {
-            Page<RoomResponse> rooms = roomService.getAvailableRooms(PageRequest.of(page, size, Sort.by("roomNumber"))).map(RoomResponse::fromRoom);
+
+            Page<RoomResponse> rooms = roomService
+                    .getAvailableRooms(type, PageRequest.of(page, size, Sort.by("roomNumber")))
+                    .map(RoomResponse::fromRoom);
             return ResponseEntity.ok(RoomListResponse.builder()
                     .rooms(rooms.getContent())
                     .totalPages(rooms.getTotalPages())
@@ -125,9 +131,11 @@ public class RoomController {
     @GetMapping("/availableOrCleaning")
     @Operation(summary = "Get all available or cleaning rooms")
     public ResponseEntity<?> getAvailableOrCleaningRooms(@RequestParam(defaultValue = "0") int page,
-                                                         @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "10") int size) {
         try {
-            Page<RoomResponse> rooms = roomService.getAvailableOrCleaningRooms(PageRequest.of(page, size, Sort.by("roomNumber"))).map(RoomResponse::fromRoom);
+            Page<RoomResponse> rooms = roomService
+                    .getAvailableOrCleaningRooms(PageRequest.of(page, size, Sort.by("roomNumber")))
+                    .map(RoomResponse::fromRoom);
             return ResponseEntity.ok(RoomListResponse.builder()
                     .rooms(rooms.getContent())
                     .totalPages(rooms.getTotalPages())
@@ -136,36 +144,5 @@ public class RoomController {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
-
-    @GetMapping("/available/single")
-    @Operation(summary = "Get single available rooms")
-    public ResponseEntity<?> getAvailableSingleRooms(@RequestParam(defaultValue = "0") int page,
-                                                     @RequestParam(defaultValue = "10") int size) {
-        try {
-            Page<RoomResponse> rooms = roomService.getAvailableSingleRooms(PageRequest.of(page, size, Sort.by("roomNumber"))).map(RoomResponse::fromRoom);
-            return ResponseEntity.ok(RoomListResponse.builder()
-                    .rooms(rooms.getContent())
-                    .totalPages(rooms.getTotalPages())
-                    .build());
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
-    }
-
-    @GetMapping("/available/couple")
-    @Operation(summary = "Get couple available rooms")
-    public ResponseEntity<?> getAvailableCoupleRooms(@RequestParam(defaultValue = "0") int page,
-                                                     @RequestParam(defaultValue = "10") int size) {
-        try {
-            Page<RoomResponse> rooms = roomService.getAvailableCoupleRooms(PageRequest.of(page, size, Sort.by("roomNumber"))).map(RoomResponse::fromRoom);
-            return ResponseEntity.ok(RoomListResponse.builder()
-                    .rooms(rooms.getContent())
-                    .totalPages(rooms.getTotalPages())
-                    .build());
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
-    }
-
 
 }

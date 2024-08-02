@@ -72,9 +72,9 @@ public class RoomService implements IRoomService {
     }
 
     @Override
-    public Page<Room> getAvailableRooms(PageRequest PageRequest) throws Exception {
+    public Page<Room> getAvailableRooms(String type, PageRequest PageRequest) throws Exception {
         
-        Page<Room> rooms = roomRepository.findAvailableRoom(PageRequest);
+        Page<Room> rooms = roomRepository.findAvailableRoom(type, PageRequest);
 
         if(rooms.isEmpty()) {
             throw new DataNotFoundException("No room found !");
@@ -88,33 +88,6 @@ public class RoomService implements IRoomService {
     public Page<Room> getAvailableOrCleaningRooms(PageRequest PageRequest) throws Exception {
         
         Page<Room> rooms = roomRepository.findAvailableOrCleaningRoom(PageRequest);
-
-        if(rooms.isEmpty()) {
-            throw new DataNotFoundException("No room found !");
-        }
-
-        return rooms;
-
-    }
-
-
-    @Override
-    public Page<Room> getAvailableSingleRooms(PageRequest PageRequest) throws Exception {
-        
-        Page<Room> rooms = roomRepository.findAvailableSingleRoom(PageRequest);
-
-        if(rooms.isEmpty()) {
-            throw new DataNotFoundException("No room found !");
-        }
-
-        return rooms;
-
-    }
-
-    @Override
-    public Page<Room> getAvailableCoupleRooms(PageRequest PageRequest) throws Exception {
-        
-        Page<Room> rooms = roomRepository.findAvailableCoupleRoom(PageRequest);
 
         if(rooms.isEmpty()) {
             throw new DataNotFoundException("No room found !");
