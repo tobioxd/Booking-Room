@@ -27,15 +27,6 @@ public class Rating {
     @Column(name = "booking_id", nullable = false)
     private String bookingId;
 
-    @Column(name = "user_phonenumber", nullable = false)
-    private String userPhoneNumber;
-
-    @Column(name = "user_name", nullable = false)
-    private String userName;
-
-    @Column(name = "room_number", nullable = false)
-    private Long roomNumber;
-
     @Column(name = "rating")
     private int rating;
 

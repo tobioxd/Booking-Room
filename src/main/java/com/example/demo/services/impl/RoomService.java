@@ -1,4 +1,4 @@
-package com.example.demo.services.base;
+package com.example.demo.services.impl;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -9,7 +9,7 @@ import com.example.demo.dtos.UpdateRoomDTO;
 import com.example.demo.entities.Room;
 import com.example.demo.exceptions.DataNotFoundException;
 import com.example.demo.repositories.RoomRepository;
-import com.example.demo.services.impl.IRoomService;
+import com.example.demo.services.base.IRoomService;
 
 import lombok.RequiredArgsConstructor;
 

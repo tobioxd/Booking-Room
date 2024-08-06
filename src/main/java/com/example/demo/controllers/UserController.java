@@ -23,8 +23,8 @@ import com.example.demo.responses.LoginResponse;
 import com.example.demo.responses.RegisterResponse;
 import com.example.demo.responses.UserListResponse;
 import com.example.demo.responses.UserResponse;
-import com.example.demo.services.base.TokenService;
-import com.example.demo.services.base.UserService;
+import com.example.demo.services.impl.TokenService;
+import com.example.demo.services.impl.UserService;
 
 import java.util.List;
 

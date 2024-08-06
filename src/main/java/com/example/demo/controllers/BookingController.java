@@ -16,7 +16,7 @@ import com.example.demo.dtos.BookingDTO;
 import com.example.demo.dtos.CancelBookingDTO;
 import com.example.demo.responses.BookingListResponse;
 import com.example.demo.responses.BookingResponse;
-import com.example.demo.services.base.BookingService;
+import com.example.demo.services.impl.BookingService;
 
 @RestController
 @RequestMapping("${api.prefix}/bookings")

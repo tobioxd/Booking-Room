@@ -15,10 +15,10 @@ public interface RatingRepository extends JpaRepository<Rating,String> {
     @Query("SELECT o FROM Rating o WHERE o.rating >= :rating")
     Page<Rating> findByRating(@Param("rating") int rating, Pageable pageable);
 
-    @Query("SELECT o FROM Rating o WHERE o.userPhoneNumber = :userPhoneNumber")
+    @Query("SELECT r FROM Rating r JOIN Booking b ON r.bookingId = b.id WHERE b.userPhoneNumber = :userPhoneNumber")
     Page<Rating> findByPhoneNumber(@Param("userPhoneNumber") String userPhoneNumber, Pageable pageable);
 
-    @Query("SELECT o FROM Rating o WHERE o.roomNumber = :roomNumber")
+    @Query("SELECT r FROM Rating r JOIN Booking b ON r.bookingId = b.id WHERE b.roomNumber = :roomNumber")
     Page<Rating> findByRoomNumber(@Param("roomNumber") Long roomNumber, Pageable pageable);
     
 } 

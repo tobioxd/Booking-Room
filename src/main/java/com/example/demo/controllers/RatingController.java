@@ -15,8 +15,8 @@ import org.springframework.web.bind.annotation.*;
 import com.example.demo.dtos.RatingDTO;
 import com.example.demo.dtos.UpdateRatingDTO;
 import com.example.demo.responses.RatingResponse;
+import com.example.demo.services.impl.RatingService;
 import com.example.demo.responses.RatingListResponse;
-import com.example.demo.services.base.RatingService;
 
 @RestController
 @RequestMapping("${api.prefix}/ratings")
@@ -35,7 +35,7 @@ public class RatingController {
             return ResponseEntity.badRequest().body(result.getAllErrors());
         }
         try {
-            RatingResponse rating = RatingResponse.fromRating(ratingService.createRating(ratingDTO, token));
+            RatingResponse rating = ratingService.createRating(ratingDTO, token);
             return ResponseEntity.ok(rating);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -48,7 +48,7 @@ public class RatingController {
     public ResponseEntity<?> getRatingById(@PathVariable String ratingId,
             @RequestHeader("Authorization") String token) {
         try {
-            RatingResponse rating = RatingResponse.fromRating(ratingService.getRatingByIdWithToken(ratingId, token));
+            RatingResponse rating = ratingService.getRatingByIdWithToken(ratingId, token);
             return ResponseEntity.ok(rating);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -65,8 +65,7 @@ public class RatingController {
             return ResponseEntity.badRequest().body(result.getAllErrors());
         }
         try {
-            RatingResponse rating = RatingResponse
-                    .fromRating(ratingService.updateRating(ratingId, updateRatingDTO, token));
+            RatingResponse rating = ratingService.updateRating(ratingId, updateRatingDTO, token);
             return ResponseEntity.ok(rating);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -94,8 +93,7 @@ public class RatingController {
         try {
             Page<RatingResponse> ratings = ratingService
                     .getRatingByUserPhoneNumber(userPhoneNumber, token,
-                            PageRequest.of(page, size, Sort.by("createdAt").descending()))
-                    .map(RatingResponse::fromRating);
+                            PageRequest.of(page, size, Sort.by("createdAt").descending()));
             return ResponseEntity.ok(RatingListResponse.builder()
                     .ratings(ratings.getContent())
                     .totalPages(ratings.getTotalPages())
@@ -111,8 +109,7 @@ public class RatingController {
             @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
         try {
             Page<RatingResponse> ratings = ratingService
-                    .getRatingByRoomNumber(roomNumber, PageRequest.of(page, size, Sort.by("createdAt").descending()))
-                    .map(RatingResponse::fromRating);
+                    .getRatingByRoomNumber(roomNumber, PageRequest.of(page, size, Sort.by("createdAt").descending()));
             return ResponseEntity.ok(RatingListResponse.builder()
                     .ratings(ratings.getContent())
                     .totalPages(ratings.getTotalPages())

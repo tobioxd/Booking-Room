@@ -1,4 +1,4 @@
-package com.example.demo.services.base;
+package com.example.demo.services.impl;
 
 import java.util.Date;
 
@@ -16,7 +16,8 @@ import com.example.demo.exceptions.DataNotFoundException;
 import com.example.demo.repositories.BookingRepository;
 import com.example.demo.repositories.RatingRepository;
 import com.example.demo.repositories.RoomRepository;
-import com.example.demo.services.impl.IRatingService;
+import com.example.demo.responses.RatingResponse;
+import com.example.demo.services.base.IRatingService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -30,7 +31,7 @@ public class RatingService implements IRatingService {
     private final UserService userService;
 
     @Override
-    public Rating createRating(RatingDTO ratingDTO, String token) throws Exception {
+    public RatingResponse createRating(RatingDTO ratingDTO, String token) throws Exception {
 
         String bookingId = ratingDTO.getBookingId();
 
@@ -58,9 +59,6 @@ public class RatingService implements IRatingService {
 
         Rating newRating = Rating.builder()
                 .bookingId(bookingId)
-                .userPhoneNumber(user.getPhoneNumber())
-                .userName(user.getName())
-                .roomNumber(booking.getRoomNumber())
                 .rating(ratingDTO.getRating())
                 .message(ratingDTO.getMessage())
                 .createdAt(new Date())
@@ -84,7 +82,7 @@ public class RatingService implements IRatingService {
             room.setRatingQuantity((long) 1);
         }
 
-        return ratingRepository.save(newRating);
+        return convertToRatingResponse(ratingRepository.save(newRating));
 
     }
 
@@ -95,7 +93,7 @@ public class RatingService implements IRatingService {
     }
 
     @Override
-    public Rating getRatingByIdWithToken(String ratingId, String token) throws Exception {
+    public RatingResponse getRatingByIdWithToken(String ratingId, String token) throws Exception {
 
         String extractedToken = token.substring(7); // Clear "Bearer" from token
         User user = userService.getUserDetailsFromToken(extractedToken);
@@ -111,12 +109,12 @@ public class RatingService implements IRatingService {
             }
         }
 
-        return rating;
+        return convertToRatingResponse(rating);
 
     }
 
     @Override
-    public Rating updateRating(String ratingId, UpdateRatingDTO updateRatingDTO, String token) throws Exception {
+    public RatingResponse updateRating(String ratingId, UpdateRatingDTO updateRatingDTO, String token) throws Exception {
 
         String extractedToken = token.substring(7); // Clear "Bearer" from token
         User user = userService.getUserDetailsFromToken(extractedToken);
@@ -133,13 +131,13 @@ public class RatingService implements IRatingService {
         rating.setRating(updateRatingDTO.getRating());
         rating.setMessage(updateRatingDTO.getMessage());
 
-        Room room = roomRepository.findByRoomNumber(rating.getRoomNumber());
+        Room room = roomRepository.findByRoomNumber(booking.getRoomNumber());
 
         float sum = room.getRating() * room.getRatingQuantity();
         float newrating = (sum + updateRatingDTO.getRating() - room.getRating()) / (room.getRatingQuantity());
         room.setRating(newrating);
 
-        return ratingRepository.save(rating);
+        return convertToRatingResponse(ratingRepository.save(rating));
 
     }
 
@@ -158,7 +156,7 @@ public class RatingService implements IRatingService {
             throw new Exception("You are not allowed to delete this rating !");
         }
 
-        Room room = roomRepository.findByRoomNumber(rating.getRoomNumber());
+        Room room = roomRepository.findByRoomNumber(booking.getRoomNumber());
 
         if (room.getRatingQuantity() == 1) {
 
@@ -182,7 +180,7 @@ public class RatingService implements IRatingService {
     }
 
     @Override
-    public Page<Rating> getRatingByUserPhoneNumber(String phoneNumber, String token, Pageable pageable)
+    public Page<RatingResponse> getRatingByUserPhoneNumber(String phoneNumber, String token, Pageable pageable)
             throws Exception {
 
         String extractedToken = token.substring(7); // Clear "Bearer" from token
@@ -204,12 +202,21 @@ public class RatingService implements IRatingService {
             throw new DataNotFoundException("No booking found !");
         }
 
-        return ratings;
+        Page<RatingResponse> ratingResponses = ratings.map(rating -> {
+            try {
+                return convertToRatingResponse(rating);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            return null;
+        });
+
+        return ratingResponses;
 
     }
 
     @Override
-    public Page<Rating> getRatingByRoomNumber(Long roomNumber, Pageable pageable) throws Exception {
+    public Page<RatingResponse> getRatingByRoomNumber(Long roomNumber, Pageable pageable) throws Exception {
 
         Page<Rating> ratings = ratingRepository.findByRoomNumber(roomNumber, pageable);
 
@@ -217,8 +224,32 @@ public class RatingService implements IRatingService {
             throw new DataNotFoundException("No booking found !");
         }
 
-        return ratings;
+        Page<RatingResponse> ratingResponses = ratings.map(rating -> {
+            try {
+                return convertToRatingResponse(rating);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            return null;
+        });
 
+        return ratingResponses;
+
+    }
+
+    private RatingResponse convertToRatingResponse(Rating rating) throws Exception{
+
+        Booking booking = bookingRepository.findById(rating.getBookingId())
+                .orElseThrow(() -> new Exception("Booking not found !"));
+
+        return RatingResponse.builder()
+                .id(rating.getId())
+                .userPhoneNumber(booking.getUserPhoneNumber())
+                .roomNumber(booking.getRoomNumber())
+                .rating(rating.getRating())
+                .message(rating.getMessage())
+                .createdAt(rating.getCreatedAt().toString())
+                .build();
     }
 
 }

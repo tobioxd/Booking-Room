@@ -181,9 +181,6 @@ INSERT INTO bookings(id, user_phonenumber, room_number, booking_date,checkin, st
 CREATE TABLE ratings (
     id NVARCHAR2(255) NOT NULL PRIMARY KEY,
     booking_id NVARCHAR2(255),
-    user_phonenumber NVARCHAR2(255),
-    user_name NVARCHAR2(255),
-    room_number NUMBER,
     rating NUMBER(5, 1),
     message NVARCHAR2(255),
     created_at DATE DEFAULT SYSDATE

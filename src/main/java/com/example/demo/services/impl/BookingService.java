@@ -1,4 +1,4 @@
-package com.example.demo.services.base;
+package com.example.demo.services.impl;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -17,7 +17,7 @@ import com.example.demo.entities.User;
 import com.example.demo.exceptions.DataNotFoundException;
 import com.example.demo.repositories.BookingRepository;
 import com.example.demo.repositories.RoomRepository;
-import com.example.demo.services.impl.IBookingService;
+import com.example.demo.services.base.IBookingService;
 
 import lombok.RequiredArgsConstructor;
 

@@ -1,4 +1,4 @@
-package com.example.demo.services.base;
+package com.example.demo.services.impl;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -11,7 +11,7 @@ import com.example.demo.entities.User;
 import com.example.demo.exceptions.DataNotFoundException;
 import com.example.demo.exceptions.ExpiredTokenException;
 import com.example.demo.repositories.TokenRepository;
-import com.example.demo.services.impl.ITokenService;
+import com.example.demo.services.base.ITokenService;
 
 import java.util.Calendar;
 import java.util.Date;

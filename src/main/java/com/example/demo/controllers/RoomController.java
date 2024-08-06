@@ -17,7 +17,7 @@ import com.example.demo.dtos.UpdateRoomDTO;
 import com.example.demo.entities.Room;
 import com.example.demo.responses.RoomListResponse;
 import com.example.demo.responses.RoomResponse;
-import com.example.demo.services.base.RoomService;
+import com.example.demo.services.impl.RoomService;
 
 @RestController
 @RequestMapping("${api.prefix}/rooms")

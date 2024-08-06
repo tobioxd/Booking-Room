@@ -1,4 +1,4 @@
-package com.example.demo.services.base;
+package com.example.demo.services.impl;
 
 import java.util.Date;
 import java.util.List;
@@ -22,7 +22,7 @@ import com.example.demo.entities.User;
 import com.example.demo.exceptions.DataNotFoundException;
 import com.example.demo.repositories.TokenRepository;
 import com.example.demo.repositories.UserRepository;
-import com.example.demo.services.impl.IUserService;
+import com.example.demo.services.base.IUserService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -73,14 +73,11 @@ public class UserService implements IUserService {
         }
 
         List<Token> tokens = tokenService.findByUser(user.get());
-        tokens.sort((t1, t2) -> t2.getExpirationDate().compareTo(t1.getExpirationDate()));
 
         if(tokens.size() >= 3){
+            tokens.sort((t1, t2) -> t2.getExpirationDate().compareTo(t1.getExpirationDate()));
             tokenService.deleteToken(tokens.get(0));
         }
-
-        System.out.println(tokens.size());
-        System.out.println(tokens.get(0));
 
         User existinguser = user.get();
 
