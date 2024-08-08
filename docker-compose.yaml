@@ -1,0 +1,7 @@
+services:
+  booking_backend:
+    image: bookingroom_backend
+    ports:
+      - 80:80
+    build:
+      dockerfile: Dockerfile
