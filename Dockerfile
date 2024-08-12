@@ -1,13 +1,14 @@
 # build jar from source code using maven 
-FROM maven:alpine AS build-stage
+FROM azul/zulu-openjdk-alpine:21-latest AS build-stage
 WORKDIR /build
 # resolve dependencies 
-COPY pom.xml /build/
-RUN mvn verify --fail-never
+COPY pom.xml mvnw /build/
+COPY .mvn /build/.mvn
+RUN --mount=type=cache,target=/root/.m2  ./mvnw verify clean --fail-never
 
 # build jar
 COPY . /build/
-RUN ./mvnw clean package
+RUN --mount=type=cache,target=/root/.m2 ./mvnw clean package
 
 FROM azul/zulu-openjdk-alpine:21-jre-headless-latest AS production-stage
 WORKDIR /app

@@ -5,3 +5,4 @@ services:
       - 80:80
     build:
       dockerfile: Dockerfile
+      context: .

@@ -5,7 +5,7 @@ spring:
   application:
     name: demo
   datasource:
-    url: jdbc:oracle:thin:@localhost:1521:orcl
+    url: jdbc:oracle:thin:@192.168.1.2:1521:orcl
     username: minh
     password: minhpro
     driver-class-name: oracle.jdbc.OracleDriver
