@@ -4,24 +4,34 @@ import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.validation.BindingResult;
+import org.springframework.validation.FieldError;
 
 import com.tobioxd.bookingroom.components.JwtTokenUtil;
+import com.tobioxd.bookingroom.dtos.RefreshTokenDTO;
 import com.tobioxd.bookingroom.dtos.UpdatePasswordDTO;
 import com.tobioxd.bookingroom.dtos.UserDTO;
+import com.tobioxd.bookingroom.dtos.UserLoginDTO;
 import com.tobioxd.bookingroom.entities.Token;
 import com.tobioxd.bookingroom.entities.User;
+import com.tobioxd.bookingroom.exceptions.DataExistAlreadyException;
 import com.tobioxd.bookingroom.exceptions.DataNotFoundException;
 import com.tobioxd.bookingroom.repositories.TokenRepository;
 import com.tobioxd.bookingroom.repositories.UserRepository;
+import com.tobioxd.bookingroom.responses.LoginResponse;
+import com.tobioxd.bookingroom.responses.RegisterResponse;
+import com.tobioxd.bookingroom.responses.UserListResponse;
+import com.tobioxd.bookingroom.responses.UserResponse;
 import com.tobioxd.bookingroom.services.base.IUserService;
 
 import lombok.RequiredArgsConstructor;
@@ -39,14 +49,29 @@ public class UserService implements IUserService {
 
     @Override
     @Transactional
-    public User createUser(UserDTO userDTO) throws Exception {
-        //register user
-        String phoneNumber = userDTO.getPhoneNumber();
-        //Check if phonenumber exists already
-        if(userRepository.existsByPhoneNumber(phoneNumber)) {
-            throw new DataIntegrityViolationException("Phone number exists already !");
+    public RegisterResponse createUser(UserDTO userDTO, BindingResult result) throws Exception {
+
+        RegisterResponse registerResponse = new RegisterResponse();
+
+        if (result.hasErrors()) {
+            List<String> errorMessages = result.getFieldErrors()
+                    .stream()
+                    .map(FieldError::getDefaultMessage)
+                    .toList();
+
+            throw new Exception(errorMessages.toString());
         }
-        //convert from userDTO => user
+
+        if (!userDTO.getPassword().equals(userDTO.getRetypePassword())) {
+            throw new Exception("Password do not match !");
+        }
+        // register user
+        String phoneNumber = userDTO.getPhoneNumber();
+        // Check if phonenumber exists already
+        if (userRepository.existsByPhoneNumber(phoneNumber)) {
+            throw new DataExistAlreadyException("Phone number exists already !");
+        }
+        // convert from userDTO => user
         User newUser = User.builder()
                 .phoneNumber(userDTO.getPhoneNumber())
                 .password(userDTO.getPassword())
@@ -55,46 +80,65 @@ public class UserService implements IUserService {
                 .createdAt(new Date())
                 .role("user")
                 .build();
-                
+
         String password = userDTO.getPassword();
         String encodedPassword = passwordEncoder.encode(password);
         newUser.setPassword(encodedPassword);
-            
-        return userRepository.save(newUser);
+
+        User user = userRepository.save(newUser);
+        registerResponse.setMessage("Register successfully !");
+        registerResponse.setUser(user);
+        return registerResponse;
     }
 
     @Override
-    public String loginUser(String phoneNumber, String password) throws Exception {
+    public LoginResponse loginUser(UserLoginDTO userLoginDTO) throws Exception {
+        String phoneNumber = userLoginDTO.getPhoneNumber();
+        String password = userLoginDTO.getPassword();
 
-        Optional<User> user= userRepository.findByPhoneNumber(phoneNumber);
-        
-        if(user.isEmpty()){
+        Optional<User> user = userRepository.findByPhoneNumber(phoneNumber);
+        if (user.isEmpty()) {
             throw new DataNotFoundException("Invalid phonenuber/password !");
         }
 
         List<Token> tokens = tokenService.findByUser(user.get());
 
-        if(tokens.size() >= 3){
+        if (tokens.size() >= 3) {
             tokens.sort((t1, t2) -> t2.getExpirationDate().compareTo(t1.getExpirationDate()));
             tokenService.deleteToken(tokens.get(0));
         }
 
         User existinguser = user.get();
 
-        if(!passwordEncoder.matches(password, existinguser.getPassword())){
-            throw new BadCredentialsException("Invalid phonenuber/password !");
+        if (!passwordEncoder.matches(password, existinguser.getPassword())) {
+            throw new DataNotFoundException("Invalid phonenuber/password !");
         }
 
         User existingUser = user.orElseThrow(() -> new DataNotFoundException("Invalid phonenuber/password !"));
-        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(phoneNumber, password, existingUser.getAuthorities());
+        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(phoneNumber,
+                password, existingUser.getAuthorities());
+
         authenticationManager.authenticate(authenticationToken);
-        return jwtTokenUtil.generateToken(existinguser);
+        String token = jwtTokenUtil.generateToken(existinguser);
+
+        User userDetail = getUserDetailsFromToken(token);
+        Token jwtToken = tokenService.addToken(userDetail, token);
+
+        return LoginResponse.builder()
+                .message("Login successfully !")
+                .token(jwtToken.getToken())
+                .tokenType(jwtToken.getTokenType())
+                .refreshToken(jwtToken.getRefreshToken())
+                .username(userDetail.getUsername())
+                .roles(userDetail.getAuthorities().stream().map(item -> item.getAuthority()).toList())
+                .id(userDetail.getId())
+                .build();
 
     }
 
     @Override
     public User getUserDetailsFromToken(String token) throws Exception {
-        if(jwtTokenUtil.isTokenExpired(token)) {
+        if (jwtTokenUtil.isTokenExpired(token)) {
             throw new Exception("Token is expired");
         }
         String phoneNumber = jwtTokenUtil.extractPhoneNumber(token);
@@ -102,10 +146,10 @@ public class UserService implements IUserService {
 
         if (user.isPresent()) {
 
-            if(user.get().isActive() == false) {
+            if (user.get().isActive() == false) {
                 throw new Exception("User is blocked !");
             }
-            
+
             return user.get();
         } else {
             throw new Exception("User not found");
@@ -129,18 +173,116 @@ public class UserService implements IUserService {
         User existingUser = userRepository.findById(userId)
                 .orElseThrow(() -> new DataNotFoundException("User not found !"));
         existingUser.setActive(active);
-        userRepository.save(existingUser);              
+        userRepository.save(existingUser);
+    }
+
+
+    @Override
+    public User updatePassword(UpdatePasswordDTO updatePasswordDTO, String token) throws Exception {
+        String extractedToken = token.substring(7); // Clear "Bearer" from token
+        User user = getUserDetailsFromToken(extractedToken);
+
+        if (!passwordEncoder.matches(updatePasswordDTO.getPassword(), user.getPassword())) {
+            throw new BadCredentialsException("Old Password is incorrect !");
+        }
+
+        String password = updatePasswordDTO.getNewPassword();
+        String encodedPassword = passwordEncoder.encode(password);
+        user.setPassword(encodedPassword);
+
+        return userRepository.save(user);
+
     }
 
     @Override
-    public User creatReceptionist(UserDTO userDTO) throws Exception {
-        //register user
-        String phoneNumber = userDTO.getPhoneNumber();
-        //Check if phonenumber exists already
-        if(userRepository.existsByPhoneNumber(phoneNumber)) {
-            throw new DataIntegrityViolationException("Phone number exists already !");
+    public LoginResponse refreshToken(RefreshTokenDTO refreshTokenDTO) throws Exception {
+
+        User userDetail = getUserDetailsFromRefreshToken(refreshTokenDTO.getRefreshToken());
+        Token jwtToken = tokenService.refreshToken(refreshTokenDTO.getRefreshToken(), userDetail);
+
+        return LoginResponse.builder()
+                .message("Refresh token successfully")
+                .token(jwtToken.getToken())
+                .tokenType(jwtToken.getTokenType())
+                .refreshToken(jwtToken.getRefreshToken())
+                .username(userDetail.getUsername())
+                .roles(userDetail.getAuthorities().stream().map(item -> item.getAuthority()).toList())
+                .id(userDetail.getId())
+                .build();
+
+    }
+
+    @Override
+    public UserListResponse getAllUser(String keyword, int page, int limit) throws Exception {
+
+        PageRequest pageRequest = PageRequest.of(
+                page, limit,
+                Sort.by("id").descending());
+
+        Page<UserResponse> users = findAll(keyword, pageRequest).map(UserResponse::fromUser);
+
+        int totalPages = users.getTotalPages();
+        List<UserResponse> userResponses = users.getContent();
+
+        return UserListResponse.builder()
+                .users(userResponses)
+                .totalPages(totalPages)
+                .build();
+    }
+
+    @Override
+    public String blockOrEnableUser(String userId, boolean active) throws Exception {
+        blockOrEnable(userId, active);
+        return active ? "User is enabled !" : "User is blocked !";
+    }
+
+    @Override
+    public RegisterResponse updateMe(String token, UpdatePasswordDTO updatePasswordDTO, BindingResult result)
+            throws Exception {
+
+        RegisterResponse registerResponse = new RegisterResponse();
+
+        if (result.hasErrors()) {
+            List<String> errorMessages = result.getFieldErrors()
+                    .stream()
+                    .map(FieldError::getDefaultMessage)
+                    .toList();
+
+            throw new Exception(errorMessages.toString());
         }
-        //convert from userDTO => user
+
+        User user = updatePassword(updatePasswordDTO, token);
+        registerResponse.setMessage("Update successfully !");
+        registerResponse.setUser(user);
+
+        return registerResponse;
+
+    }
+
+    @Override
+    public RegisterResponse createReceptionist(UserDTO userDTO, BindingResult result) throws Exception {
+        
+        RegisterResponse registerResponse = new RegisterResponse();
+
+        if (result.hasErrors()) {
+            List<String> errorMessages = result.getFieldErrors()
+                    .stream()
+                    .map(FieldError::getDefaultMessage)
+                    .toList();
+
+            throw new Exception(errorMessages.toString());
+        }
+
+        if (!userDTO.getPassword().equals(userDTO.getRetypePassword())) {
+            throw new Exception("Password do not match !");
+        }
+        // register user
+        String phoneNumber = userDTO.getPhoneNumber();
+        // Check if phonenumber exists already
+        if (userRepository.existsByPhoneNumber(phoneNumber)) {
+            throw new DataExistAlreadyException("Phone number exists already !");
+        }
+        // convert from userDTO => user
         User newUser = User.builder()
                 .phoneNumber(userDTO.getPhoneNumber())
                 .password(userDTO.getPassword())
@@ -149,28 +291,15 @@ public class UserService implements IUserService {
                 .createdAt(new Date())
                 .role("receptionist")
                 .build();
-                
+
         String password = userDTO.getPassword();
         String encodedPassword = passwordEncoder.encode(password);
         newUser.setPassword(encodedPassword);
-            
-        return userRepository.save(newUser);
-    }
 
-    @Override
-    public User updateMe(UpdatePasswordDTO updatePasswordDTO, String token) throws Exception {
-        String extractedToken = token.substring(7); // Clear "Bearer" from token
-        User user = getUserDetailsFromToken(extractedToken);
-
-        if(!passwordEncoder.matches(updatePasswordDTO.getPassword(), user.getPassword())){
-            throw new BadCredentialsException("Old Password is incorrect !");
-        }
-
-        String password = updatePasswordDTO.getNewPassword();
-        String encodedPassword = passwordEncoder.encode(password);
-        user.setPassword(encodedPassword);
-            
-        return userRepository.save(user);
+        User user = userRepository.save(newUser);
+        registerResponse.setMessage("Create receptionist account successfully !");
+        registerResponse.setUser(user);
+        return registerResponse;
 
     }
 

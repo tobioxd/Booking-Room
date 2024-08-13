@@ -4,9 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.BindingResult;
@@ -14,8 +12,8 @@ import org.springframework.web.bind.annotation.*;
 
 import com.tobioxd.bookingroom.dtos.RatingDTO;
 import com.tobioxd.bookingroom.dtos.UpdateRatingDTO;
-import com.tobioxd.bookingroom.responses.RatingListResponse;
-import com.tobioxd.bookingroom.responses.RatingResponse;
+import com.tobioxd.bookingroom.exceptions.DataNotFoundException;
+import com.tobioxd.bookingroom.exceptions.PermissionDenyException;
 import com.tobioxd.bookingroom.services.impl.RatingService;
 
 @RestController
@@ -31,12 +29,10 @@ public class RatingController {
     @PreAuthorize("hasRole('ROLE_USER')")
     public ResponseEntity<?> createRating(@Valid @RequestBody RatingDTO ratingDTO, BindingResult result,
             @RequestHeader("Authorization") String token) {
-        if (result.hasErrors()) {
-            return ResponseEntity.badRequest().body(result.getAllErrors());
-        }
         try {
-            RatingResponse rating = ratingService.createRating(ratingDTO, token);
-            return ResponseEntity.ok(rating);
+            return ResponseEntity.ok(ratingService.createRating(ratingDTO, token, result));
+        } catch (PermissionDenyException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -48,8 +44,9 @@ public class RatingController {
     public ResponseEntity<?> getRatingById(@PathVariable String ratingId,
             @RequestHeader("Authorization") String token) {
         try {
-            RatingResponse rating = ratingService.getRatingByIdWithToken(ratingId, token);
-            return ResponseEntity.ok(rating);
+            return ResponseEntity.ok(ratingService.getRatingByIdWithToken(ratingId, token));
+        } catch (PermissionDenyException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -61,12 +58,12 @@ public class RatingController {
     public ResponseEntity<?> updateRating(@PathVariable String ratingId,
             @Valid @RequestBody UpdateRatingDTO updateRatingDTO,
             BindingResult result, @RequestHeader("Authorization") String token) {
-        if (result.hasErrors()) {
-            return ResponseEntity.badRequest().body(result.getAllErrors());
-        }
         try {
-            RatingResponse rating = ratingService.updateRating(ratingId, updateRatingDTO, token);
-            return ResponseEntity.ok(rating);
+            return ResponseEntity.ok(ratingService.updateRating(ratingId, updateRatingDTO, token, result));
+        } catch (PermissionDenyException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        } catch(DataNotFoundException e){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -79,6 +76,10 @@ public class RatingController {
         try {
             ratingService.deleteRating(ratingId, token);
             return ResponseEntity.ok("Rating deleted successfully !");
+        } catch (PermissionDenyException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        } catch(DataNotFoundException e){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -91,13 +92,11 @@ public class RatingController {
             @RequestHeader("Authorization") String token,
             @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
         try {
-            Page<RatingResponse> ratings = ratingService
-                    .getRatingByUserPhoneNumber(userPhoneNumber, token,
-                            PageRequest.of(page, size, Sort.by("createdAt").descending()));
-            return ResponseEntity.ok(RatingListResponse.builder()
-                    .ratings(ratings.getContent())
-                    .totalPages(ratings.getTotalPages())
-                    .build());
+            return ResponseEntity.ok(ratingService.getRatingByUserPhoneNumber(userPhoneNumber, token, page, size));
+        } catch (PermissionDenyException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        } catch(DataNotFoundException e){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -108,12 +107,9 @@ public class RatingController {
     public ResponseEntity<?> getRatingByRoomNumber(@PathVariable Long roomNumber,
             @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
         try {
-            Page<RatingResponse> ratings = ratingService
-                    .getRatingByRoomNumber(roomNumber, PageRequest.of(page, size, Sort.by("createdAt").descending()));
-            return ResponseEntity.ok(RatingListResponse.builder()
-                    .ratings(ratings.getContent())
-                    .totalPages(ratings.getTotalPages())
-                    .build());
+            return ResponseEntity.ok(ratingService.getRatingByRoomNumber(roomNumber, page, size));
+        } catch(DataNotFoundException e){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }

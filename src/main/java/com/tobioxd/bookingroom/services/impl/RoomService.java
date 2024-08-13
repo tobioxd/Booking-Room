@@ -2,13 +2,18 @@ package com.tobioxd.bookingroom.services.impl;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.validation.BindingResult;
 
 import com.tobioxd.bookingroom.dtos.RoomDTO;
 import com.tobioxd.bookingroom.dtos.UpdateRoomDTO;
 import com.tobioxd.bookingroom.entities.Room;
+import com.tobioxd.bookingroom.exceptions.DataExistAlreadyException;
 import com.tobioxd.bookingroom.exceptions.DataNotFoundException;
 import com.tobioxd.bookingroom.repositories.RoomRepository;
+import com.tobioxd.bookingroom.responses.RoomListResponse;
+import com.tobioxd.bookingroom.responses.RoomResponse;
 import com.tobioxd.bookingroom.services.base.IRoomService;
 
 import lombok.RequiredArgsConstructor;
@@ -20,12 +25,16 @@ public class RoomService implements IRoomService {
     private final RoomRepository roomRepository;
 
     @Override
-    public Room createRoom(RoomDTO roomDTO) throws Exception {
+    public Room createRoom(RoomDTO roomDTO, BindingResult result) throws Exception {
+
+        if (result.hasErrors()) {
+            throw new Exception(result.getAllErrors().toString());
+        }
         
         Long roomNumber = roomDTO.getRoomNumber();
 
         if(roomRepository.existsByRoomNumber(roomNumber)) {
-            throw new Exception("Room number exists already !");
+            throw new DataExistAlreadyException("Room number exists already !");
         }
 
         Room newRoom = Room.builder()
@@ -45,22 +54,30 @@ public class RoomService implements IRoomService {
 
     @Override
     public Room updateRoomStatus(Long roomNumber, String status) throws Exception {
+
         Room room = getRoomByRoomNumber(roomNumber);
         room.setRoomStatus(status);
         return roomRepository.save(room);
+
     }
 
     @Override
-    public Room updateRoomInfor(Long roomNumber, UpdateRoomDTO room) throws Exception {
+    public Room updateRoomInfor(Long roomNumber, UpdateRoomDTO room, BindingResult result) throws Exception {
+
+        if (result.hasErrors()) {
+            throw new Exception(result.getAllErrors().toString());
+        }
+
         Room roomToUpdate = getRoomByRoomNumber(roomNumber);
         roomToUpdate.setRoomType(room.getRoomType());
         roomToUpdate.setRoomPrice(room.getRoomPrice());
+
         return roomRepository.save(roomToUpdate);
     }
 
     @Override
-    public Page<Room> getAllRooms(PageRequest PageRequest) throws Exception {
-        
+    public Page<Room> allRooms(PageRequest PageRequest) throws DataNotFoundException{
+
         Page<Room> rooms = roomRepository.findAll(PageRequest);
 
         if(rooms.isEmpty()) {
@@ -72,7 +89,7 @@ public class RoomService implements IRoomService {
     }
 
     @Override
-    public Page<Room> getAvailableRooms(String type, PageRequest PageRequest) throws Exception {
+    public Page<Room> availableRooms(String type, PageRequest PageRequest) throws DataNotFoundException {
         
         Page<Room> rooms = roomRepository.findAvailableRoom(type, PageRequest);
 
@@ -85,7 +102,7 @@ public class RoomService implements IRoomService {
     }
 
     @Override
-    public Page<Room> getAvailableOrCleaningRooms(PageRequest PageRequest) throws Exception {
+    public Page<Room> availableOrCleaningRooms(PageRequest PageRequest) throws DataNotFoundException {
         
         Page<Room> rooms = roomRepository.findAvailableOrCleaningRoom(PageRequest);
 
@@ -98,12 +115,13 @@ public class RoomService implements IRoomService {
     }
 
     @Override
-    public void deleteRoom(Long roomNumber) throws Exception {
+    public String deleteRoom(Long roomNumber) throws Exception {
         
         Room room = getRoomByRoomNumber(roomNumber);
         room.setRoomStatus("deleted");
         roomRepository.save(room);
 
+        return "Room deleted successfully !";
     }
 
     @Override
@@ -116,6 +134,48 @@ public class RoomService implements IRoomService {
         }
 
         return room;
+
+    }
+
+    @Override
+    public RoomListResponse getAllRooms(int page, int size)  throws DataNotFoundException {
+
+        Page<RoomResponse> rooms = allRooms(PageRequest.of(page, size, Sort.by("roomNumber")))
+                    .map(RoomResponse::fromRoom);
+        
+        return RoomListResponse.builder()
+                .rooms(rooms.getContent())
+                .totalPages(rooms.getTotalPages())
+                .totalPages(rooms.getTotalPages())
+                .build();
+
+    }
+
+    @Override
+    public RoomListResponse getAvailableRooms(String type, int page, int size) throws Exception {
+        
+        Page<RoomResponse> rooms = availableRooms(type, PageRequest.of(page, size, Sort.by("roomNumber")))
+                    .map(RoomResponse::fromRoom);
+        
+        return RoomListResponse.builder()
+                .rooms(rooms.getContent())
+                .totalPages(rooms.getTotalPages())
+                .totalPages(rooms.getTotalPages())
+                .build();
+
+    }
+
+    @Override
+    public RoomListResponse getAvailableOrCleaningRooms(int page, int size) throws Exception {
+        
+        Page<RoomResponse> rooms = availableOrCleaningRooms(PageRequest.of(page, size, Sort.by("roomNumber")))
+                    .map(RoomResponse::fromRoom);
+        
+        return RoomListResponse.builder()
+                .rooms(rooms.getContent())
+                .totalPages(rooms.getTotalPages())
+                .totalPages(rooms.getTotalPages())
+                .build();
 
     }
 

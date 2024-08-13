@@ -6,7 +6,7 @@ import lombok.*;
 import org.hibernate.annotations.GenericGenerator;
 
 @Entity
-@Table(name = "rooms")
+@Table(name = "booking_rooms")
 @Getter
 @Setter
 @AllArgsConstructor

@@ -7,7 +7,9 @@ import java.text.SimpleDateFormat;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.validation.BindingResult;
 
 import com.tobioxd.bookingroom.dtos.BookingDTO;
 import com.tobioxd.bookingroom.dtos.CancelBookingDTO;
@@ -15,8 +17,11 @@ import com.tobioxd.bookingroom.entities.Booking;
 import com.tobioxd.bookingroom.entities.Room;
 import com.tobioxd.bookingroom.entities.User;
 import com.tobioxd.bookingroom.exceptions.DataNotFoundException;
+import com.tobioxd.bookingroom.exceptions.PermissionDenyException;
 import com.tobioxd.bookingroom.repositories.BookingRepository;
 import com.tobioxd.bookingroom.repositories.RoomRepository;
+import com.tobioxd.bookingroom.responses.BookingListResponse;
+import com.tobioxd.bookingroom.responses.BookingResponse;
 import com.tobioxd.bookingroom.services.base.IBookingService;
 
 import lombok.RequiredArgsConstructor;
@@ -31,7 +36,11 @@ public class BookingService implements IBookingService {
     private final RoomService roomService;
 
     @Override
-    public Booking createBooking(BookingDTO bookingDTO, String token) throws Exception {
+    public Booking createBooking(BookingDTO bookingDTO, String token, BindingResult result) throws Exception {
+
+        if (result.hasErrors()) {
+            throw new Exception(result.getAllErrors().toString());
+        }
 
         Long roomNumber = bookingDTO.getRoomNumber();
 
@@ -39,7 +48,7 @@ public class BookingService implements IBookingService {
         User user = userService.getUserDetailsFromToken(extractedToken);
 
         if (!roomRepository.existsByRoomNumber(roomNumber)) {
-            throw new Exception("Room number not found !");
+            throw new DataNotFoundException("Room number not found !");
         }
 
         if (!roomRepository.isRoomAvailable(roomNumber)) {
@@ -67,7 +76,7 @@ public class BookingService implements IBookingService {
 
     @Override
     public Booking getBookingByIdWithToken(String bookingId, String token) throws Exception {
-        
+
         String extractedToken = token.substring(7); // Clear "Bearer" from token
         User user = userService.getUserDetailsFromToken(extractedToken);
 
@@ -82,7 +91,7 @@ public class BookingService implements IBookingService {
     }
 
     @Override
-    public Page<Booking> getAllBookingWithStatus(String status, PageRequest pageRequest) throws Exception {
+    public Page<Booking> allBookingWithStatus(String status, PageRequest pageRequest) throws Exception {
         Page<Booking> bookings = bookingRepository.findBookingwithStatus(status, pageRequest);
 
         if (bookings.isEmpty()) {
@@ -145,15 +154,19 @@ public class BookingService implements IBookingService {
     }
 
     @Override
-    public Booking cancelBooking(String bookingId, CancelBookingDTO cancelBookingDTO, String token) throws Exception {
+    public Booking cancelBooking(String bookingId, CancelBookingDTO cancelBookingDTO, String token, BindingResult result) throws Exception {
 
+        if (result.hasErrors()) {
+            throw new Exception(result.getAllErrors().toString());
+        }
+ 
         String extractedToken = token.substring(7); // Clear "Bearer" from token
         User user = userService.getUserDetailsFromToken(extractedToken);
 
         Booking booking = getBookingById(bookingId);
 
         if (!booking.getUserPhoneNumber().equals(user.getPhoneNumber())) {
-            throw new Exception("You are not authorized to cancel this booking !");
+            throw new PermissionDenyException("You are not authorized to cancel this booking !");
         }
 
         booking.setNote(cancelBookingDTO.getReason());
@@ -166,14 +179,15 @@ public class BookingService implements IBookingService {
     }
 
     @Override
-    public Page<Booking> getBookingByUserPhoneNumber(String phoneNumber, PageRequest pageRequest, String token) throws Exception {
+    public Page<Booking> bookingByUserPhoneNumber(String phoneNumber, PageRequest pageRequest, String token)
+            throws Exception {
 
         String extractedToken = token.substring(7); // Clear "Bearer" from token
         User user = userService.getUserDetailsFromToken(extractedToken);
 
         if (user.getRole().equals("user")) {
             if (!user.getPhoneNumber().equals(phoneNumber)) {
-                throw new Exception("You are not authorized to view this booking!");
+                throw new PermissionDenyException("You are not authorized to view this booking!");
             }
         }
 
@@ -188,7 +202,7 @@ public class BookingService implements IBookingService {
     }
 
     @Override
-    public Page<Booking> getBookingByRoomNumber(Long roomNumber, PageRequest pageRequest) throws Exception {
+    public Page<Booking> bookingByRoomNumber(Long roomNumber, PageRequest pageRequest) throws Exception {
 
         Page<Booking> bookings = bookingRepository.findByRoomNumber(roomNumber, pageRequest);
 
@@ -201,7 +215,7 @@ public class BookingService implements IBookingService {
     }
 
     @Override
-    public Page<Booking> getBookingByPrice(Float price, PageRequest pageRequest) throws Exception {
+    public Page<Booking> bookingByPrice(Float price, PageRequest pageRequest) throws Exception {
 
         Page<Booking> bookings = bookingRepository.findBookingByPrice(price, pageRequest);
 
@@ -214,7 +228,7 @@ public class BookingService implements IBookingService {
     }
 
     @Override
-    public Page<Booking> getBookingByDate(String date, PageRequest pageRequest) throws Exception {
+    public Page<Booking> bookingByDate(String date, PageRequest pageRequest) throws Exception {
 
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
         Date bookingDate = dateFormat.parse(date);
@@ -234,6 +248,77 @@ public class BookingService implements IBookingService {
     @Override
     public Float getBookingCountAndTotalPrice() throws Exception {
         return bookingRepository.findTotalPrice();
+    }
+
+    @Override
+    public BookingListResponse getBookingByUserPhoneNumber(String userPhoneNumber, int page, int size, String token)
+            throws Exception {
+
+        Page<BookingResponse> bookings = bookingByUserPhoneNumber(userPhoneNumber,
+                PageRequest.of(page, size, Sort.by("bookingDate").descending()), token)
+                .map(BookingResponse::fromBooking);
+
+        return BookingListResponse.builder()
+                .bookings(bookings.getContent())
+                .totalPages(bookings.getTotalPages())
+                .build();
+
+    }
+
+    @Override
+    public BookingListResponse getBookingByRoomNumber(Long roomNumber, int page, int size) throws Exception {
+
+        Page<BookingResponse> bookings = bookingByRoomNumber(roomNumber,
+                PageRequest.of(page, size, Sort.by("bookingDate").descending()))
+                .map(BookingResponse::fromBooking);
+
+        return BookingListResponse.builder()
+                .bookings(bookings.getContent())
+                .totalPages(bookings.getTotalPages())
+                .build();
+
+    }
+
+    @Override
+    public BookingListResponse getAllBookingWithStatus(String status, int page, int size) throws Exception {
+
+        Page<BookingResponse> bookings = allBookingWithStatus(status,
+                PageRequest.of(page, size, Sort.by("bookingDate").descending()))
+                .map(BookingResponse::fromBooking);
+
+        return BookingListResponse.builder()
+                .bookings(bookings.getContent())
+                .totalPages(bookings.getTotalPages())
+                .build();
+
+    }
+
+    @Override
+    public BookingListResponse getBookingByPrice(Float price, int page, int size) throws Exception {
+
+        Page<BookingResponse> bookings = bookingByPrice(price,
+                PageRequest.of(page, size, Sort.by("bookingDate").descending()))
+                .map(BookingResponse::fromBooking);
+
+        return BookingListResponse.builder()
+                .bookings(bookings.getContent())
+                .totalPages(bookings.getTotalPages())
+                .build();
+
+    }
+
+    @Override
+    public BookingListResponse getBookingByDate(String date, int page, int size) throws Exception {
+
+        Page<BookingResponse> bookings = bookingByDate(date,
+                PageRequest.of(page, size, Sort.by("bookingDate").descending()))
+                .map(BookingResponse::fromBooking);
+
+        return BookingListResponse.builder()
+                .bookings(bookings.getContent())
+                .totalPages(bookings.getTotalPages())
+                .build();
+
     }
 
 }

@@ -14,7 +14,7 @@ import java.util.Date;
 import java.util.List;
 
 @Entity
-@Table(name = "users")
+@Table(name = "booking_users")
 @Getter
 @Setter
 @AllArgsConstructor

@@ -4,9 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.BindingResult;
@@ -14,7 +12,8 @@ import org.springframework.web.bind.annotation.*;
 
 import com.tobioxd.bookingroom.dtos.BookingDTO;
 import com.tobioxd.bookingroom.dtos.CancelBookingDTO;
-import com.tobioxd.bookingroom.responses.BookingListResponse;
+import com.tobioxd.bookingroom.exceptions.DataNotFoundException;
+import com.tobioxd.bookingroom.exceptions.PermissionDenyException;
 import com.tobioxd.bookingroom.responses.BookingResponse;
 import com.tobioxd.bookingroom.services.impl.BookingService;
 
@@ -30,12 +29,10 @@ public class BookingController {
     @PreAuthorize("hasRole('ROLE_USER')")
     public ResponseEntity<?> createBooking(@Valid @RequestBody BookingDTO bookingDTO, BindingResult result,
             @RequestHeader("Authorization") String token) {
-        if (result.hasErrors()) {
-            return ResponseEntity.badRequest().body(result.getAllErrors());
-        }
         try {
-            BookingResponse booking = BookingResponse.fromBooking(bookingService.createBooking(bookingDTO, token));
-            return ResponseEntity.ok(booking);
+            return ResponseEntity.ok(BookingResponse.fromBooking(bookingService.createBooking(bookingDTO, token, result)));
+        } catch (DataNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -47,13 +44,9 @@ public class BookingController {
     public ResponseEntity<?> getAllBookings(@RequestParam(defaultValue = "") String status,
             @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
         try {
-            Page<BookingResponse> bookings = bookingService
-                    .getAllBookingWithStatus(status, PageRequest.of(page, size, Sort.by("bookingDate").descending()))
-                    .map(BookingResponse::fromBooking);
-            return ResponseEntity.ok(BookingListResponse.builder()
-                    .bookings(bookings.getContent())
-                    .totalPages(bookings.getTotalPages())
-                    .build());
+            return ResponseEntity.ok().body(bookingService.getAllBookingWithStatus(status, page, size));
+        } catch (DataNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -62,10 +55,11 @@ public class BookingController {
     @GetMapping("/{bookingId}")
     @Operation(summary = "Get booking by id")
     @PreAuthorize("hasRole('ROLE_ADMIN') OR hasRole('ROLE_USER') OR hasRole('ROLE_RECEPTIONIST')")
-    public ResponseEntity<?> getBookingById(@PathVariable String bookingId, @RequestHeader("Authorization") String token) {
+    public ResponseEntity<?> getBookingById(@PathVariable String bookingId,
+            @RequestHeader("Authorization") String token) {
         try {
-            BookingResponse booking = BookingResponse.fromBooking(bookingService.getBookingByIdWithToken(bookingId,token));
-            return ResponseEntity.ok(booking);
+            return ResponseEntity
+                    .ok(BookingResponse.fromBooking(bookingService.getBookingByIdWithToken(bookingId, token)));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -77,8 +71,7 @@ public class BookingController {
     public ResponseEntity<?> confirmBooking(@PathVariable String bookingId,
             @RequestHeader("Authorization") String token) {
         try {
-            BookingResponse booking = BookingResponse.fromBooking(bookingService.confirmBooking(bookingId, token));
-            return ResponseEntity.ok(booking);
+            return ResponseEntity.ok(BookingResponse.fromBooking(bookingService.confirmBooking(bookingId, token)));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -90,13 +83,12 @@ public class BookingController {
     public ResponseEntity<?> cancelBooking(@PathVariable String bookingId,
             @Valid @RequestBody CancelBookingDTO cancelBookingDTO, BindingResult result,
             @RequestHeader("Authorization") String token) {
-        if (result.hasErrors()) {
-            return ResponseEntity.badRequest().body(result.getAllErrors());
-        }
         try {
-            BookingResponse booking = BookingResponse
-                    .fromBooking(bookingService.cancelBooking(bookingId, cancelBookingDTO, token));
-            return ResponseEntity.ok(booking);
+            return ResponseEntity.ok(BookingResponse.fromBooking(bookingService.cancelBooking(bookingId, cancelBookingDTO, token, result)));
+        } catch (PermissionDenyException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        } catch (DataNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -107,8 +99,7 @@ public class BookingController {
     @PreAuthorize("hasRole('ROLE_RECEPTIONIST')")
     public ResponseEntity<?> checkInBooking(@PathVariable String bookingId) {
         try {
-            BookingResponse booking = BookingResponse.fromBooking(bookingService.checkInBooking(bookingId));
-            return ResponseEntity.ok(booking);
+            return ResponseEntity.ok(BookingResponse.fromBooking(bookingService.checkInBooking(bookingId)));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -119,8 +110,7 @@ public class BookingController {
     @PreAuthorize("hasRole('ROLE_RECEPTIONIST')")
     public ResponseEntity<?> checkOutBooking(@PathVariable String bookingId) {
         try {
-            BookingResponse booking = BookingResponse.fromBooking(bookingService.checkOutBooking(bookingId));
-            return ResponseEntity.ok(booking);
+            return ResponseEntity.ok(BookingResponse.fromBooking(bookingService.checkOutBooking(bookingId)));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -133,14 +123,11 @@ public class BookingController {
             @PathVariable String phoneNumber,
             @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
         try {
-            Page<BookingResponse> bookings = bookingService
-                    .getBookingByUserPhoneNumber(phoneNumber,
-                            PageRequest.of(page, size, Sort.by("bookingDate").descending()), token)
-                    .map(BookingResponse::fromBooking);
-            return ResponseEntity.ok(BookingListResponse.builder()
-                    .bookings(bookings.getContent())
-                    .totalPages(bookings.getTotalPages())
-                    .build());
+            return ResponseEntity.ok().body(bookingService.getBookingByUserPhoneNumber(phoneNumber, page, size, token));
+        } catch (PermissionDenyException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        } catch (DataNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -152,13 +139,9 @@ public class BookingController {
     public ResponseEntity<?> getBookingByRoomNumber(@PathVariable Long roomNumber,
             @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
         try {
-            Page<BookingResponse> bookings = bookingService
-                    .getBookingByRoomNumber(roomNumber, PageRequest.of(page, size, Sort.by("bookingDate").descending()))
-                    .map(BookingResponse::fromBooking);
-            return ResponseEntity.ok(BookingListResponse.builder()
-                    .bookings(bookings.getContent())
-                    .totalPages(bookings.getTotalPages())
-                    .build());
+            return ResponseEntity.ok().body(bookingService.getBookingByRoomNumber(roomNumber, page, size));
+        } catch (DataNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -170,13 +153,9 @@ public class BookingController {
     public ResponseEntity<?> getBookingByPrice(@PathVariable Float price, @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         try {
-            Page<BookingResponse> bookings = bookingService
-                    .getBookingByPrice(price, PageRequest.of(page, size, Sort.by("bookingDate").descending()))
-                    .map(BookingResponse::fromBooking);
-            return ResponseEntity.ok(BookingListResponse.builder()
-                    .bookings(bookings.getContent())
-                    .totalPages(bookings.getTotalPages())
-                    .build());
+            return ResponseEntity.ok().body(bookingService.getBookingByPrice(price, page, size));
+        } catch (DataNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -188,13 +167,9 @@ public class BookingController {
     public ResponseEntity<?> getBookingByDate(@PathVariable String date, @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         try {
-            Page<BookingResponse> bookings = bookingService
-                    .getBookingByDate(date, PageRequest.of(page, size, Sort.by("bookingDate").descending()))
-                    .map(BookingResponse::fromBooking);
-            return ResponseEntity.ok(BookingListResponse.builder()
-                    .bookings(bookings.getContent())
-                    .totalPages(bookings.getTotalPages())
-                    .build());
+            return ResponseEntity.ok().body(bookingService.getBookingByDate(date, page, size));
+        } catch (DataNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }

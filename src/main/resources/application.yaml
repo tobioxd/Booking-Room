@@ -33,8 +33,11 @@ jwt:
 
 logging:
   level:
-    org.hibernate.orm.jdbc.bind: trace
-    org.hibernate.SQL: debug
-    org.hibernate.type: TRACE
-    org.hibernate.type.descriptor.sql: trace
+    # org.hibernate.orm.jdbc.bind: trace
+    # org.hibernate.SQL: debug
+    # org.hibernate.type: TRACE
+    # org.hibernate.type.descriptor.sql: trace
+    # org.springframework.security: debug
+    # org.springframework.web: debug
+    com.shopapp.components.ApiLoggingFilter: DEBUG
   

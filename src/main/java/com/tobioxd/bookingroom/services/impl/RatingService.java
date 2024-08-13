@@ -3,8 +3,11 @@ package com.tobioxd.bookingroom.services.impl;
 import java.util.Date;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.validation.BindingResult;
 
 import com.tobioxd.bookingroom.dtos.RatingDTO;
 import com.tobioxd.bookingroom.dtos.UpdateRatingDTO;
@@ -13,9 +16,11 @@ import com.tobioxd.bookingroom.entities.Rating;
 import com.tobioxd.bookingroom.entities.Room;
 import com.tobioxd.bookingroom.entities.User;
 import com.tobioxd.bookingroom.exceptions.DataNotFoundException;
+import com.tobioxd.bookingroom.exceptions.PermissionDenyException;
 import com.tobioxd.bookingroom.repositories.BookingRepository;
 import com.tobioxd.bookingroom.repositories.RatingRepository;
 import com.tobioxd.bookingroom.repositories.RoomRepository;
+import com.tobioxd.bookingroom.responses.RatingListResponse;
 import com.tobioxd.bookingroom.responses.RatingResponse;
 import com.tobioxd.bookingroom.services.base.IRatingService;
 
@@ -31,7 +36,11 @@ public class RatingService implements IRatingService {
     private final UserService userService;
 
     @Override
-    public RatingResponse createRating(RatingDTO ratingDTO, String token) throws Exception {
+    public RatingResponse createRating(RatingDTO ratingDTO, String token, BindingResult result) throws Exception {
+
+        if (result.hasErrors()) {
+            throw new Exception(result.getAllErrors().toString());
+        }
 
         String bookingId = ratingDTO.getBookingId();
 
@@ -42,7 +51,7 @@ public class RatingService implements IRatingService {
         User user = userService.getUserDetailsFromToken(extractedToken);
 
         if (!booking.getUserPhoneNumber().equals(user.getPhoneNumber())) {
-            throw new Exception("You are not allowed to rate this booking !");
+            throw new PermissionDenyException("You are not allowed to rate this booking !");
         }
 
         if (booking.getCheckOutDate() == null) {
@@ -101,11 +110,11 @@ public class RatingService implements IRatingService {
         Rating rating = getRatingById(ratingId);
 
         Booking booking = bookingRepository.findById(rating.getBookingId())
-                .orElseThrow(() -> new Exception("Booking not found !"));
+                .orElseThrow(() -> new DataNotFoundException("Booking not found !"));
 
         if (user.getRole().equals("user")) {
             if (!booking.getUserPhoneNumber().equals(user.getPhoneNumber())) {
-                throw new Exception("You are not allowed to view this rating !");
+                throw new PermissionDenyException("You are not allowed to view this rating !");
             }
         }
 
@@ -114,7 +123,11 @@ public class RatingService implements IRatingService {
     }
 
     @Override
-    public RatingResponse updateRating(String ratingId, UpdateRatingDTO updateRatingDTO, String token) throws Exception {
+    public RatingResponse updateRating(String ratingId, UpdateRatingDTO updateRatingDTO, String token, BindingResult result) throws Exception {
+
+        if (result.hasErrors()) {
+            throw new Exception(result.getAllErrors().toString());
+        }
 
         String extractedToken = token.substring(7); // Clear "Bearer" from token
         User user = userService.getUserDetailsFromToken(extractedToken);
@@ -122,10 +135,10 @@ public class RatingService implements IRatingService {
         Rating rating = getRatingById(ratingId);
 
         Booking booking = bookingRepository.findById(rating.getBookingId())
-                .orElseThrow(() -> new Exception("Booking not found !"));
+                .orElseThrow(() -> new DataNotFoundException("Booking not found !"));
 
         if (!booking.getUserPhoneNumber().equals(user.getPhoneNumber())) {
-            throw new Exception("You are not allowed to rate this booking !");
+            throw new PermissionDenyException("You are not allowed to rate this booking !");
         }
 
         rating.setRating(updateRatingDTO.getRating());
@@ -150,10 +163,10 @@ public class RatingService implements IRatingService {
         Rating rating = getRatingById(ratingId);
 
         Booking booking = bookingRepository.findById(rating.getBookingId())
-                .orElseThrow(() -> new Exception("Booking not found !"));
+                .orElseThrow(() -> new DataNotFoundException("Booking not found !"));
 
         if (!booking.getUserPhoneNumber().equals(user.getPhoneNumber())) {
-            throw new Exception("You are not allowed to delete this rating !");
+            throw new PermissionDenyException("You are not allowed to delete this rating !");
         }
 
         Room room = roomRepository.findByRoomNumber(booking.getRoomNumber());
@@ -180,7 +193,7 @@ public class RatingService implements IRatingService {
     }
 
     @Override
-    public Page<RatingResponse> getRatingByUserPhoneNumber(String phoneNumber, String token, Pageable pageable)
+    public Page<RatingResponse> ratingByUserPhoneNumber(String phoneNumber, String token, Pageable pageable)
             throws Exception {
 
         String extractedToken = token.substring(7); // Clear "Bearer" from token
@@ -192,7 +205,7 @@ public class RatingService implements IRatingService {
 
         if (user.getRole().equals("user")) {
             if (!phoneNumber.equals(user.getPhoneNumber())) {
-                throw new Exception("You are not allowed to view these rating !");
+                throw new PermissionDenyException("You are not allowed to view these rating !");
             }
         }
 
@@ -216,7 +229,7 @@ public class RatingService implements IRatingService {
     }
 
     @Override
-    public Page<RatingResponse> getRatingByRoomNumber(Long roomNumber, Pageable pageable) throws Exception {
+    public Page<RatingResponse> ratingByRoomNumber(Long roomNumber, Pageable pageable) throws Exception {
 
         Page<Rating> ratings = ratingRepository.findByRoomNumber(roomNumber, pageable);
 
@@ -240,7 +253,7 @@ public class RatingService implements IRatingService {
     private RatingResponse convertToRatingResponse(Rating rating) throws Exception{
 
         Booking booking = bookingRepository.findById(rating.getBookingId())
-                .orElseThrow(() -> new Exception("Booking not found !"));
+                .orElseThrow(() -> new DataNotFoundException("Booking not found !"));
 
         return RatingResponse.builder()
                 .id(rating.getId())
@@ -250,6 +263,33 @@ public class RatingService implements IRatingService {
                 .message(rating.getMessage())
                 .createdAt(rating.getCreatedAt().toString())
                 .build();
+    }
+
+    @Override
+    public RatingListResponse getRatingByUserPhoneNumber(String phoneNumber, String token, int page, int size)
+            throws Exception {
+        
+        Page<RatingResponse> ratings = ratingByUserPhoneNumber(phoneNumber, token,
+                            PageRequest.of(page, size, Sort.by("createdAt").descending()));
+
+        return RatingListResponse.builder()
+                .ratings(ratings.getContent())
+                .totalPages(ratings.getTotalPages())
+                .build();
+
+    }
+
+    @Override
+    public RatingListResponse getRatingByRoomNumber(Long roomNumber, int page, int size) throws Exception {
+        
+        Page<RatingResponse> ratings = ratingByRoomNumber(roomNumber,
+                            PageRequest.of(page, size, Sort.by("createdAt").descending()));
+
+        return RatingListResponse.builder()
+                .ratings(ratings.getContent())
+                .totalPages(ratings.getTotalPages())
+                .build();
+
     }
 
 }

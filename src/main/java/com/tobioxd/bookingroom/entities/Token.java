@@ -8,7 +8,7 @@ import java.util.Date;
 import org.hibernate.annotations.GenericGenerator;
 
 @Entity
-@Table(name = "tokens")
+@Table(name = "booking_tokens")
 @Getter
 @Setter
 @AllArgsConstructor
